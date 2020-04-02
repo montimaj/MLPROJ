@@ -1,0 +1,25 @@
+---
+title: "IST 5535 | Machine Learning Project: New York-Rent Prices-2020-Zillow Dataset"
+author: "Group 2 | Tanner Fry, Sayantan Majumdar, Daren Liu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    number_sections: true
+---
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE}
+# Clean the environment
+rm(list = ls())
+```
+
+# Data Exploration
+
+```{r}
+zillow.data <- read.csv('../Data/zillow.csv')
+print(str(zillow.data))
+summary(zillow.data)
+```
