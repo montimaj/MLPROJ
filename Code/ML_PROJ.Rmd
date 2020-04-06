@@ -21,5 +21,25 @@ rm(list = ls())
 ```{r}
 zillow.data <- read.csv('../Data/zillow.csv')
 print(str(zillow.data))
+```
+
+```{r}
 summary(zillow.data)
 ```
+
+# Data Cleaning
+
+```{r}
+
+```
+
+# Data Exploration V2
+
+```{r, fig.height= 5, fig.width= 6}
+pairs(~area+bathrooms+bedrooms+homeStatus+homeType+price+state, data = zillow.data)
+```
+
+```{r}
+
+```
+
