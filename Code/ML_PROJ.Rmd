@@ -30,7 +30,7 @@ summary(zillow.data)
 # Data Cleaning
 
 ```{r}
-zillow.data<-subset (zillow.data, select = -c(real.estate.provider:relaxed))
+zillow.data<-subset (zillow.data, select = -c(url:relaxed))
 zillow.data<-subset (zillow.data, select = -c(currency,commute))
 
 ```
