@@ -30,7 +30,7 @@ summary(zillow.data)
 # Data Cleaning
 
 ```{r}
-zillow.data<-subset (zillow.data, select = -c(url:relaxed))
+zillow.data<-subset (zillow.data, select = -c(real.estate.provider:relaxed))
 zillow.data<-subset (zillow.data, select = -c(currency,commute))
 
 ```
@@ -42,6 +42,20 @@ pairs(~area+bathrooms+bedrooms+homeStatus+homeType+price+state, data = zillow.da
 ```
 
 ```{r}
+hist(zillow.data$bedrooms,
+     main = 'Histogram of bedroom',
+     xlab = 'bedroom')
+```
 
+```{r}
+hist(zillow.data$bathrooms,
+     main = 'Histogram of bathroom',
+     xlab = 'bathroom')
+```
+
+```{r}
+hist(zillow.data$area,
+     main = 'Histogram of area',
+     xlab = 'area')
 ```
 
