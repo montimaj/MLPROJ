@@ -33,29 +33,52 @@ summary(zillow.data)
 zillow.data<-subset (zillow.data, select = -c(real.estate.provider:relaxed))
 zillow.data<-subset (zillow.data, select = -c(currency,commute))
 
+# TODO: 
+# 1. Change price from $x,xxx/mo to a numeric number for analysis
 ```
 
 # Data Exploration V2
 
-```{r, fig.height= 5, fig.width= 6}
+```{r, fig.height = 5, fig.width = 6}
+library(dplyr)
+library(psych)
 pairs(~area+bathrooms+bedrooms+homeStatus+homeType+price+state, data = zillow.data)
 ```
+```{r, fig.height = 7, fig.width = 9}
+# Note: may want to remove state?
+zillow.data %>% select(c(area, bathrooms, bedrooms, homeStatus, homeType, price, state)) %>% 
+  pairs.panels(method = "pearson", # correlation method 
+               hist.col = "green",
+               density = TRUE,  # show density plots 
+               ellipses = TRUE # show correlation ellipses
+               )
+```
+## Price of homes have a positively related with the number of bedrooms and bathrooms (at least with most data points via bathrooms. Bathrooms might need to be refined as there seems to be a few outliers). 
+
+## TODO: Figure out if price needs to be numeric for pairs to work properly via analysis
 
 ```{r}
 hist(zillow.data$bedrooms,
-     main = 'Histogram of bedroom',
-     xlab = 'bedroom')
+     main = 'Histogram of Bedrooms',
+     xlab = 'Bedrooms')
 ```
 
 ```{r}
 hist(zillow.data$bathrooms,
-     main = 'Histogram of bathroom',
-     xlab = 'bathroom')
+     main = 'Histogram of Bathrooms',
+     xlab = 'Bathrooms')
 ```
 
 ```{r}
 hist(zillow.data$area,
-     main = 'Histogram of area',
-     xlab = 'area')
+     main = 'Histogram of Area',
+     xlab = 'Area')
+```
+
+```{r}
+# TODO: Make sure price is numeric for analysis
+hist(zillow.data$price,
+     main = 'Histogram of Price',
+     xlab = 'Price')
 ```
 
