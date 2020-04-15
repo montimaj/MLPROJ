@@ -20,21 +20,45 @@ rm(list = ls())
 
 ```{r}
 zillow.data <- read.csv('../Data/zillow.csv')
-print(str(zillow.data))
-```
-
-```{r}
-summary(zillow.data)
+str(zillow.data)
+# summary(zillow.data)
 ```
 
 # Data Cleaning
 
 ```{r}
-zillow.data<-subset (zillow.data, select = -c(real.estate.provider:relaxed))
-zillow.data<-subset (zillow.data, select = -c(currency,commute))
+zillow.data <- subset(zillow.data, 
+                      select = -c(yearBuilt: longitude,
+                                  real.estate.provider:commute, latitude))
+zillow.data <- na.omit(zillow.data)
+# there are two rows in the na removed df where price is blank
 
-# TODO: 
-# 1. Change price from $x,xxx/mo to a numeric number for analysis
+transform_price <- function(price, sep = ',') {
+  library(qdapRegex)
+  
+  if (price == '' || is.na(price)) {  # Fixes blank issue
+    return(NA) 
+  }
+  price <- paste(price, '/', sep = '')
+  check_plus <- ex_between(price, '$', '+')[[1]]
+  check_bracket <- ex_between(price, '$', ')')[[1]]
+  check_slash <- ex_between(price, '$', '/')[[1]]
+  p <- NA
+  if (!is.na(check_plus)) {
+    p <- as.numeric(gsub(sep, "", check_plus))
+  } else if (!is.na(check_bracket)) {
+    p <- as.numeric(gsub(sep, "", check_bracket))
+  } else if (!is.na(check_slash)) {
+    p <- as.numeric(gsub(sep, "", check_slash))
+  }
+  return(p)
+}
+
+zillow.data$price <- sapply(zillow.data$price, transform_price)
+zillow.data <- na.omit(zillow.data)
+str(zillow.data)
+summary(zillow.data)
+write.csv(zillow.data, '../Data/zillow_cleaned.csv', row.names = FALSE)
 ```
 
 # Data Exploration V2
@@ -42,16 +66,18 @@ zillow.data<-subset (zillow.data, select = -c(currency,commute))
 ```{r, fig.height = 5, fig.width = 6}
 library(dplyr)
 library(psych)
-pairs(~area+bathrooms+bedrooms+homeStatus+homeType+price+state, data = zillow.data)
+pairs(~ ., data = zillow.data)
 ```
+
 ```{r, fig.height = 7, fig.width = 9}
 # Note: may want to remove state?
-zillow.data %>% select(c(area, bathrooms, bedrooms, homeStatus, homeType, price, state)) %>% 
-  pairs.panels(method = "pearson", # correlation method 
-               hist.col = "green",
-               density = TRUE,  # show density plots 
-               ellipses = TRUE # show correlation ellipses
-               )
+zillow.data %>% select(c(area, bathrooms, bedrooms, homeStatus, homeType,
+                         price, state)) %>% 
+pairs.panels(method = "pearson", # correlation method 
+                hist.col = "green",
+                density = TRUE,  # show density plots 
+                ellipses = TRUE # show correlation ellipses
+                )
 ```
 ## Price of homes have a positively related with the number of bedrooms and bathrooms (at least with most data points via bathrooms. Bathrooms might need to be refined as there seems to be a few outliers). 
 
@@ -76,7 +102,6 @@ hist(zillow.data$area,
 ```
 
 ```{r}
-# TODO: Make sure price is numeric for analysis
 hist(zillow.data$price,
      main = 'Histogram of Price',
      xlab = 'Price')
