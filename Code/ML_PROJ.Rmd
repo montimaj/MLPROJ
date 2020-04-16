@@ -107,3 +107,14 @@ hist(zillow.data$price,
      xlab = 'Price')
 ```
 
+### data partition
+```{r}
+set.seed(123)
+
+train <- sample(1:nrow(zillow.data),nrow(zillow.data)*0.7)
+
+train_zillow <- zillow.data[train,]
+test_zillow <- zillow.data[-train,]
+
+dim(train_zillow)
+```
