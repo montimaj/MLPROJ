@@ -15,22 +15,22 @@ knitr::opts_chunk$set(
     comment = NA)
 ```
   
-```{r, echo=FALSE}
+```{r clean, echo=FALSE}
 # Clean the environment
 rm(list = ls())
 ```
 
 # Data Exploration
 
-```{r}
+```{r data_explore}
 zillow.data <- read.csv('../Data/zillow.csv')
 str(zillow.data)
-# summary(zillow.data)
+summary(zillow.data)
 ```
 
 # Data Cleaning
 
-```{r}
+```{r data_cleaning}
 zillow.data <- subset(zillow.data, 
                       select = -c(yearBuilt: longitude,
                                   real.estate.provider:commute, latitude,
@@ -60,23 +60,21 @@ transform_price <- function(price, sep = ',') {
 }
 
 zillow.data$price <- sapply(zillow.data$price, transform_price)
-plot(zillow.data$price)
-# handle outliers, this is crucial with 1e+6, the model is underfitting
+hist(zillow.data$price, main = "Histogram of Actual Prices")
+# handling outlier, changing the threshold will cause all models to perform poorly
 zillow.data$price[zillow.data$price > 1e+6] <- NA
 zillow.data <- na.omit(zillow.data)
 str(zillow.data)
 summary(zillow.data)
 write.csv(zillow.data, '../Data/zillow_cleaned.csv', row.names = FALSE)
-plot(zillow.data$price)
+hist(zillow.data$price, main = "Histogram of Outlier Removed Prices")
 ```
 
 # Data Exploration V2
 
-```{r, fig.height=7, fig.width=9}
-library(dplyr)
-library(psych)
+```{r data_explore_v2, fig.height=7, fig.width=9}
 
-pairs.panels(zillow.data, 
+psych::pairs.panels(zillow.data, 
              method = "pearson", # correlation method 
              hist.col = "green",
              density = TRUE,  # show density plots 
@@ -86,8 +84,39 @@ pairs.panels(zillow.data,
 
 Price of homes are positively related with the number of bedrooms and bathrooms (at least with most data points via bathrooms. Bathrooms might need to be refined as there seems to be a few outliers).
 
+## Creating Dummies
+
+```{r create_dummies}
+zillow.data$homeStatusFOR_SALE <- ifelse(zillow.data$homeStatus ==
+                                          'FOR_SALE', 1, 0)
+zillow.data$homeStatusOTHER <- ifelse(zillow.data$homeStatus == 'OTHER', 
+                                      1, 0)
+zillow.data$homeStatusPENDING <- ifelse(zillow.data$homeStatus == 
+                                        'PENDING', 1, 0)
+zillow.data$homeStatusRECENTLY_SOLD <- ifelse(zillow.data$homeStatus == 
+                                              'RECENTLY_SOLD', 1, 0)
+# zillow.data$homeStatusSOLD <- ifelse(zillow.data$homeStatus == 'SOLD', 
+#                                      1, 0)
+zillow.data$homeStatusFOR_RENT <- ifelse(zillow.data$homeStatus ==
+                                          'FOR_RENT', 1, 0)
+
+zillow.data$homeTypeCONDO <- ifelse(zillow.data$homeType == 'CONDO', 1, 0)
+zillow.data$homeTypeAPARTMENT <- ifelse(zillow.data$homeType ==
+                                        'APARTMENT', 1, 0)
+zillow.data$homeTypeLOT <- ifelse(zillow.data$homeType == 'LOT', 1, 0)
+zillow.data$homeTypeMULTI_FAMILY <- ifelse(zillow.data$homeType ==
+                                           'MULTI_FAMILY', 1, 0)
+zillow.data$homeTypeSINGLE_FAMILY <- ifelse(zillow.data$homeType ==
+                                           'SINGLE_FAMILY', 1, 0)
+# zillow.data$homeTypeTOWNHOUSE <- ifelse(zillow.data$homeType ==
+#                                            'TOWNHOUSE', 1, 0)
+
+zillow.data$homeStatus <- NULL
+zillow.data$homeType <- NULL
+```
+
 ## Data Partition
-```{r}
+```{r data_partition}
 library(caret)
 library(parallel)
 library(doParallel)
@@ -102,26 +131,39 @@ zillow.train_index <- createDataPartition(zillow.data$price, p = .8,
                                           list = FALSE)
 zillow.train_data <- zillow.data[zillow.train_index,]
 zillow.test_data  <- zillow.data[-zillow.train_index,]
+plot(zillow.train_data$price)
+plot(zillow.test_data$price)
 nrow(zillow.train_data)
 nrow(zillow.test_data)
 ```
 
 ## Linear Model Selection and Regularization
 
+### Removing Dummies to Resolve Multi-Collinearity
+
+```{r remove_dummies}
+zillow.train_data.linear <- zillow.train_data
+zillow.test_data.linear <- zillow.test_data
+zillow.train_data.linear$homeStatusOTHER <- NULL
+zillow.test_data.linear$homeStatusOTHER <- NULL
+zillow.train_data.linear$homeTypeLOT <- NULL
+zillow.test_data.linear$homeTypeLOT <- NULL
+```
+
 ### Univariate Feature Selection
-```{r}
-zillow.linear.fit <- lm(price ~ ., data = zillow.train_data)
+```{r uni_feature_select}
+zillow.linear.fit <- lm(price ~ ., data = zillow.train_data.linear)
 summary(zillow.linear.fit)
 print(BIC(zillow.linear.fit))
 print(AIC(zillow.linear.fit))
 ```
 
 ### Best Subset Selection
-```{r}
+```{r best_subset}
 library(leaps)
 
-train_x <- model.matrix(price ~ ., data = zillow.train_data)[,-1]
-train_y <- zillow.train_data$price
+train_x <- model.matrix(price ~ ., data = zillow.train_data.linear)[,-1]
+train_y <- zillow.train_data.linear$price
 nv_max <- NULL
 fit_best <- regsubsets(x = train_x, y = train_y, nvmax = nv_max)
 fit_best_sum <- summary(fit_best)
@@ -170,7 +212,7 @@ model_stats(fit_best)
 ```
 
 ### Forward Stepwise Selection
-```{r}
+```{r forward_select}
 fit_fwd <- regsubsets(x = train_x, y = train_y, nvmax = nv_max,
                       method = 'forward')
 fit_fwd_sum <- summary(fit_fwd)
@@ -180,7 +222,7 @@ model_stats(fit_fwd)
 
 
 ### Backward Stepwise Selection
-```{r}
+```{r backward_select}
 fit_bwd <- regsubsets(x = train_x, y = train_y, nvmax = nv_max,
                       method = 'backward')
 fit_bwd_sum <- summary(fit_bwd)
@@ -189,10 +231,10 @@ model_stats(fit_bwd)
 ```
 
 ### Lasso
-```{r}
+```{r lasso}
 library(glmnet)
 
-grid <- 10^seq(10, -2, length = 100)
+grid <- 10 ^ seq(10, -2, length = 100)
 lasso <- glmnet(x = train_x, y = train_y, alpha = 1, lambda = grid)
 plot(lasso, xvar = 'lambda')
 #k-folds CV
@@ -208,26 +250,22 @@ print(coefs)
 
 ### Final Linear Model
 
-```{r}
-# zillow.lfit <- lm(price ~ homeStatus +
-#                   homeType * area * bathrooms * bedrooms,
-#                   data = zillow.train_data)
-zillow.lfit <- zillow.linear.fit
+```{r final_lm}
+zillow.lfit <- lm(price ~ bathrooms + homeStatusFOR_SALE + 
+                  homeStatusFOR_RENT, data = zillow.train_data)
 summary(zillow.lfit)
 print(BIC(zillow.lfit))
 print(AIC(zillow.lfit))
 plot(zillow.lfit)
 ```
 
-From the lasso model results, we see that homeType, homeStatus, area, bathrooms, and bedrooms are significantly important for predicting the price values. This is in concordance with the practical scenario. However. we observe that the interaction term which includes homeType, area, bathrooms, and bedrooms combinedly is very useful. This is because the price of a building usually depends on the type, area, and number of bedrooms and bathrooms.
-
 ### Linear Model Evaluation
-```{r}
+```{r lm_eval}
 library(ggplot2)
 
-zillow.test_pred <- abs(predict(zillow.lfit, newdata = zillow.test_data,
-                    interval = "confidence"))
-eval_df <- cbind(zillow.test_data, zillow.test_pred)
+zillow.test_pred <- predict(zillow.lfit, newdata = zillow.test_data.linear,
+                    interval = "confidence")
+eval_df <- cbind(zillow.test_data.linear, zillow.test_pred)
 colnames(eval_df)[colnames(eval_df) == "price"] <- "Actual"
 colnames(eval_df)[colnames(eval_df) == "fit"] <- "Predicted"
 ggplot(eval_df, aes(x = Actual, y = Predicted)) +
@@ -236,12 +274,16 @@ ggplot(eval_df, aes(x = Actual, y = Predicted)) +
     geom_line(aes(y = upr), color = "red", linetype = "dashed")+
     geom_smooth(method = lm, se = TRUE)
 postResample(eval_df$Predicted, eval_df$Actual)
+plot(eval_df$Predicted, eval_df$Actual)
+abline(0, 1)
 ```
 
 ## Regression Tree
 
-```{r}
+```{r rt}
 library(tree)
+
+# For non-linear models, we directly use the original dummy containing data
 price_rt <- tree(price ~ ., data = zillow.train_data)
 plot(price_rt)
 text(price_rt, cex = 0.5, col = 'red')
@@ -250,7 +292,7 @@ summary(price_rt)
 
 ### Pruned Regression Tree
 
-```{r}
+```{r prt}
 cv_price <- cv.tree(price_rt)
 plot(cv_price$size, cv_price$dev, type = 'b', log = 'y',
      xlab = 'Tree Size', ylab = 'Deviance')
@@ -258,17 +300,18 @@ plot(cv_price$size, cv_price$dev, type = 'b', log = 'y',
 
 ### Pruned Decision Tree Performance
 
-```{r}
+```{r rt_perform}
 rt_yhat <- predict(price_rt, newdata = zillow.test_data)
-rt_results <- postResample(rt_yhat, zillow.test_data$price)
+obs <- zillow.test_data$price
+rt_results <- postResample(rt_yhat, obs)
 print(rt_results)
-plot(rt_yhat, zillow.test_data$price)
+plot(rt_yhat, obs)
 abline(0, 1)
 ```
 
 ## Random Forest
 
-```{r}
+```{r rf}
 library(randomForest)
 price_rf <- randomForest(price ~ ., data = zillow.train_data,
                          mtry = 5, importance = TRUE)
@@ -277,7 +320,7 @@ price_rf
 
 ### Optimizing mtry
 
-```{r}
+```{r rf_opt}
 num_predictors <- ncol(zillow.train_data) - 1
 tuneGrid <- data.frame(mtry = 1: num_predictors)
 print(tuneGrid)
@@ -294,47 +337,59 @@ plot(rf_tuned)
 
 ### Final RF model
 
-```{r}
+```{r final_rf}
+price_rf <- randomForest(price ~ ., data = zillow.train_data,
+                         mtry = 12, importance = TRUE)
 varImpPlot(price_rf)
 ```
 
 ### Random Forest Performance
 
-```{r}
+```{r rf_perform}
 rf_yhat <- predict(price_rf, newdata = zillow.test_data)
-rf_results <- postResample(rf_yhat, zillow.test_data$price)
+rf_results <- postResample(rf_yhat, obs)
 print(rf_results)
-plot(rf_yhat, zillow.test_data$price)
+plot(rf_yhat, obs)
 abline(0, 1)
 ```
 
 ## Support Vector Machine
 
-```{r}
-library(e1071)
+```{r svm}
 
-preprocessParams <- preProcess(zillow.train_data,
-                               method =
-                                 c("scale", "center"))
-print(preprocessParams)
-train_scaled <- predict(preprocessParams, zillow.train_data)
-test_scaled <- predict(preprocessParams, zillow.test_data)
-svm_cv <- function(data, response, num_folds, kernel_type) {
+zillow.train_data.svm <- zillow.train_data
+zillow.test_data.svm <- zillow.test_data
+zillow.train_data.svm$homeStatusPENDING <- NULL
+zillow.test_data.svm$homeStatusPENDING <- NULL
+zillow.train_data.svm$homeStatusRECENTLY_SOLD <- NULL
+zillow.test_data.svm$homeStatusRECENTLY_SOLD <- NULL
+zillow.train_data.svm$homeTypeLOT <- NULL
+zillow.test_data.svm$homeTypeLOT <- NULL
+
+svm_cv_caret <- function(data, response, num_folds, repeats, kernel_type) {
   set.seed(0)
   f <- as.formula(paste(response, '~ .'))
-  ranges <- list(cost = 10 ^ (-2: 2))
-  if (kernel_type == 'radial' || kernel_type == 'linear') {
-    ranges["gamma"] <- list(10 ^ (-2: 2))
+  tuneGrid <- data.frame(C = 10 ^ (-2: 2))
+  if (kernel_type == 'svmRadial') {
+    tuneGrid <- data.frame(C = 10 ^ (-2: 2),
+                           sigma = 10 ^ (-2: 2))
+  } else if (kernel_type == 'svmPoly') {
+    tuneGrid <- data.frame(C = 10 ^ (-2: 2),
+                           degree = rep(2, 5),
+                           scale = rep(1, 5))
   }
-  tune_svm <- tune(svm, f, data = data,
-                   kernel = kernel_type,
-                   tunecontrol = tune.control(cross = num_folds,
-                                              sampling = "cross"),
-                   ranges = ranges)
-  print(summary(tune_svm))
-  print(tune_svm$best.parameters)
-  print(tune_svm$best.performance)
-  return(tune_svm)
+  print(tuneGrid)
+  control <- trainControl(method = 'repeatedcv',
+                          number = num_folds,
+                          repeats = repeats)
+  svm_tuned <- train(f, data = data,
+                     method = kernel_type,
+                     trControl = control,
+                     tuneGrid = tuneGrid)
+  print(svm_tuned)
+  print(svm_tuned$bestTune)
+  plot(svm_tuned)
+  return(svm_tuned)
 }
 ```
 
@@ -342,38 +397,45 @@ Using 10-fold cross validation to fine tune SVM kernels.
 
 ### Linear Kernel
 
-```{r}
-tune_svm_linear <- svm_cv(train_scaled, 'price', 10, 'linear')
+```{r tune_svm_linear}
+tune_svm_linear <- svm_cv_caret(zillow.train_data.svm, 'price', 10, 3,
+                                'svmLinear')
 ```
 
 ### Radial (RBF) Kernel
 
-```{r}
-tune_svm_radial <- svm_cv(train_scaled, 'price', 10, 'radial')
+```{r tune_svm_radial}
+tune_svm_radial <- svm_cv_caret(zillow.train_data.svm, 'price', 10, 3,
+                                'svmRadial')
 ```
 
 ### Polynomial Kernel
 
-```{r}
-tune_svm_poly <- svm_cv(train_scaled, 'price', 10, 'polynomial')
+```{r tune_svm_poly}
+tune_svm_poly <- svm_cv_caret(zillow.train_data.svm, 'price', 10, 3,
+                              'svmPoly')
 ```
 
 ### Final SVM Model
 
-```{r}
-price_svm <- svm(price ~ ., data = train_scaled, kernel = 'linear', 
-                 cost = 3, gamma = 1, scale = TRUE)
+```{r final_svm}
+price_svm <- train(price ~ ., data = zillow.train_data.svm, 
+                   method = 'svmPoly',
+                   trControl = trainControl(method = "none"), 
+                   tuneGrid = data.frame(C = 0.01, degree = 2, scale = 1))
 ```
 
 ### SVM Performance
-```{r}
-svm_yhat <- predict(price_svm, newdata = test_scaled)
-svm_yhat <- svm_yhat * sd(zillow.test_data$price) +
-  mean(zillow.test_data$price)
-svm_results <- postResample(svm_yhat, zillow.test_data$price)
+```{r svm_perform}
+svm_yhat <- predict(price_svm, newdata = zillow.test_data.svm)
+obs <- zillow.test_data.svm$price
+svm_results <- postResample(svm_yhat, obs)
 print(svm_results)
-plot(svm_yhat, zillow.test_data$price)
+plot(svm_yhat, obs)
 abline(0, 1)
+```
+
+```{r stop_cluster}
 stopCluster(cl)
 ```
 
