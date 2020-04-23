@@ -95,8 +95,7 @@ zillow.data$homeStatusPENDING <- ifelse(zillow.data$homeStatus ==
                                         'PENDING', 1, 0)
 zillow.data$homeStatusRECENTLY_SOLD <- ifelse(zillow.data$homeStatus == 
                                               'RECENTLY_SOLD', 1, 0)
-# zillow.data$homeStatusSOLD <- ifelse(zillow.data$homeStatus == 'SOLD', 
-#                                      1, 0)
+
 zillow.data$homeStatusFOR_RENT <- ifelse(zillow.data$homeStatus ==
                                           'FOR_RENT', 1, 0)
 
@@ -108,8 +107,6 @@ zillow.data$homeTypeMULTI_FAMILY <- ifelse(zillow.data$homeType ==
                                            'MULTI_FAMILY', 1, 0)
 zillow.data$homeTypeSINGLE_FAMILY <- ifelse(zillow.data$homeType ==
                                            'SINGLE_FAMILY', 1, 0)
-# zillow.data$homeTypeTOWNHOUSE <- ifelse(zillow.data$homeType ==
-#                                            'TOWNHOUSE', 1, 0)
 
 zillow.data$homeStatus <- NULL
 zillow.data$homeType <- NULL
@@ -126,7 +123,7 @@ cl <- makePSOCKcluster(detectCores())
 registerDoParallel(cl)
 
 set.seed(0)
-# Doing a standard 70%-30% train-test split
+# Doing a standard 80%-20% train-test split
 zillow.train_index <- createDataPartition(zillow.data$price, p = .8,
                                           list = FALSE)
 zillow.train_data <- zillow.data[zillow.train_index,]
