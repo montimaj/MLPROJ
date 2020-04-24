@@ -157,7 +157,7 @@ print(AIC(zillow.linear.fit))
 ```{r best_subset}
 library(leaps)
 
-train_x <- model.matrix(price ~ ., data = zillow.train_data.linear)[,-1]
+train_x <- model.matrix(price ~ ., data = zillow.train_data.linear)[, -1]
 train_y <- zillow.train_data.linear$price
 nv_max <- NULL
 fit_best <- regsubsets(x = train_x, y = train_y, nvmax = nv_max)
@@ -276,12 +276,49 @@ plot(eval_df$Predicted, eval_df$Actual)
 abline(0, 1, col = 'red')
 ```
 
+## k-NN Regression
+
+### Optimizing k
+```{r knn_opt}
+# For non-linear models, we directly use the original dummy containing data
+preprocessParams <- preProcess(zillow.train_data,
+                               method = c("scale", "center"))
+train_scaled <- predict(preprocessParams, zillow.train_data)
+test_scaled <- predict(preprocessParams, zillow.test_data)
+control <- trainControl(method = 'repeatedcv',
+                        number = 10, repeats = 3)
+set.seed(0)
+knn_tuned <- train(price ~ ., data = train_scaled, method = 'knn',
+                   trControl = control,
+                   tuneGrid = data.frame(k = 1: 100))
+plot(knn_tuned)
+```
+
+### Final k-NN model
+```{r final_knn}
+price_knn <- train(price ~ ., data = train_scaled, method = 'knn',
+                   trControl = trainControl(method = "none"),
+                   tuneGrid = data.frame(k = 4))
+price_knn
+```
+
+### k-NN Performance
+```{r knn_perform}
+knn_yhat <- predict(price_knn, newdata = test_scaled)
+knn_yhat <- knn_yhat * sd(zillow.train_data$price) + 
+           mean(zillow.train_data$price)
+obs <- zillow.test_data$price
+knn_results <- postResample(knn_yhat, obs)
+print(knn_results)
+plot(knn_yhat, obs)
+abline(0, 1, col = 'red')
+```
+
 ## Regression Tree
 
 ```{r rt}
 library(tree)
 
-# For non-linear models, we directly use the original dummy containing data
 price_rt <- tree(price ~ ., data = zillow.train_data)
 plot(price_rt)
 text(price_rt, cex = 0.5, col = 'red')
@@ -300,7 +337,6 @@ plot(cv_price$size, cv_price$dev, type = 'b', log = 'y',
 
 ```{r rt_perform}
 rt_yhat <- predict(price_rt, newdata = zillow.test_data)
-obs <- zillow.test_data$price
 rt_results <- postResample(rt_yhat, obs)
 print(rt_results)
 plot(rt_yhat, obs)
@@ -311,7 +347,7 @@ abline(0, 1, col = 'red')
 
 ```{r rf}
 library(randomForest)
-price_rf <- randomForest(price ~ ., data = zillow.train_data, mtry = 5, 
+price_rf <- randomForest(price ~ ., data = zillow.train_data, mtry = 5,
                          importance = TRUE)
 price_rf
 ```
@@ -353,11 +389,6 @@ abline(0, 1, col = 'red')
 ## Support Vector Machine
 
 ```{r svm}
-preprocessParams <- preProcess(zillow.train_data,
-                               method = c("scale", "center"))
-train_scaled <- predict(preprocessParams, zillow.train_data)
-test_scaled <- predict(preprocessParams, zillow.test_data)
-
 svm_cv_caret <- function(data, response, num_folds, repeats, kernel_type) {
   set.seed(0)
   f <- as.formula(paste(response, '~ .'))
@@ -384,8 +415,6 @@ svm_cv_caret <- function(data, response, num_folds, repeats, kernel_type) {
   return(svm_tuned)
 }
 ```
-
-Using 10-fold cross validation to fine tune SVM kernels.
 
 ### Linear Kernel
 
@@ -420,7 +449,7 @@ price_svm <- train(price ~ ., data = train_scaled,
 ### SVM Performance
 ```{r svm_perform}
 svm_yhat <- predict(price_svm, newdata = test_scaled)
-svm_yhat <- svm_yhat * sd(zillow.train_data$price) + 
+svm_yhat <- svm_yhat * sd(zillow.train_data$price) +
            mean(zillow.train_data$price)
 svm_results <- postResample(svm_yhat, obs)
 print(svm_results)
@@ -442,25 +471,25 @@ test_scaled <- predict(preprocessParams, zillow.test_data)
 library('neuralnet')
 fit_ann <- function(data, response = 'price', hidden) {
   f <- formula(paste(response, '~ .'))
-  nn_fit <- neuralnet(f, data = data, hidden = hidden, 
+  nn_fit <- neuralnet(f, data = data, hidden = hidden,
                       linear.output = TRUE)
   return(nn_fit)
 }
 ```
 
 ```{r ann_performance_func}
-get_ann_performance <- function(nn_fit, test_scaled, train_scaled, 
-                                test_data, train_data, 
+get_ann_performance <- function(nn_fit, test_scaled, train_scaled,
+                                test_data, train_data,
                                 response = 'price') {
   pred_norm_train <- compute(nn_fit, train_scaled)
   pred_norm_train <- pred_norm_train$net.result
-  pred_train <- pred_norm_train*(max(train_data[[response]]) - 
-                       min(train_data[[response]])) + 
+  pred_train <- pred_norm_train*(max(train_data[[response]]) -
+                       min(train_data[[response]])) +
                        min(train_data[[response]])
   pred_norm_test <- compute(nn_fit, test_scaled)
   pred_norm_test <- pred_norm_test$net.result
-  pred_test <- pred_norm_test*(max(train_data[[response]]) - 
-                       min(train_data[[response]])) + 
+  pred_test <- pred_norm_test*(max(train_data[[response]]) -
+                       min(train_data[[response]])) +
                        min(train_data[[response]])
   print('Training Metrics')
   print(postResample(pred_train, train_data[[response]]))
@@ -494,13 +523,13 @@ plot(nn_fit_1, rep = "best",cex = 0.8)
 
 ### ANN Three-Layer Performance
 ```{r compute_ann_3}
-get_ann_performance(nn_fit_3, test_scaled, train_scaled, 
+get_ann_performance(nn_fit_3, test_scaled, train_scaled,
                     zillow.test_data, zillow.train_data)
 ```
 
 ### ANN Two-Layer Performance
 ```{r compute_ann_2}
-get_ann_performance(nn_fit_2, test_scaled, train_scaled, 
+get_ann_performance(nn_fit_2, test_scaled, train_scaled,
                     zillow.test_data, zillow.train_data)
 ```
 
