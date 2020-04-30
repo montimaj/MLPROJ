@@ -261,8 +261,12 @@ par(mfrow = c(1, 1))
 ```{r lm_eval}
 library(ggplot2)
 
-zillow.test_pred <- predict(zillow.lfit, newdata = zillow.test_data.linear,
-                    interval = "confidence")
+zillow.train_pred <- predict(zillow.lfit)
+obs_train <- zillow.train_data$price
+lm_results_train <- postResample(zillow.train_pred, obs_train)
+zillow.test_pred <- predict(zillow.lfit, 
+                            newdata =zillow.test_data.linear,
+                            interval = "confidence")
 eval_df <- cbind(zillow.test_data.linear, zillow.test_pred)
 colnames(eval_df)[colnames(eval_df) == "price"] <- "Actual"
 colnames(eval_df)[colnames(eval_df) == "fit"] <- "Predicted"
@@ -271,7 +275,9 @@ ggplot(eval_df, aes(x = Actual, y = Predicted)) +
     geom_line(aes(y = lwr), color = "red", linetype = "dashed")+
     geom_line(aes(y = upr), color = "red", linetype = "dashed")+
     geom_smooth(method = lm, se = TRUE)
-postResample(eval_df$Predicted, eval_df$Actual)
+lm_results_test <- postResample(eval_df$Predicted, eval_df$Actual)
+print(lm_results_train)
+print(lm_results_test)
 plot(eval_df$Predicted, eval_df$Actual)
 abline(0, 1, col = 'red')
 ```
@@ -285,12 +291,13 @@ preprocessParams <- preProcess(zillow.train_data,
                                method = c("scale", "center"))
 train_scaled <- predict(preprocessParams, zillow.train_data)
 test_scaled <- predict(preprocessParams, zillow.test_data)
-control <- trainControl(method = 'repeatedcv',
-                        number = 10, repeats = 3)
+control <- trainControl(method = 'repeatedcv', number = 10, repeats = 3)
 set.seed(0)
 knn_tuned <- train(price ~ ., data = train_scaled, method = 'knn',
-                   trControl = control,
-                   tuneGrid = data.frame(k = 1: 100))
+                   trControl = control, 
+                   tuneGrid = data.frame(k = 3: 100))
+best_k <- knn_tuned$bestTune$k
+print(paste('Best K=', best_k))
 plot(knn_tuned)
 ```
 
@@ -298,19 +305,24 @@ plot(knn_tuned)
 ```{r final_knn}
 price_knn <- train(price ~ ., data = train_scaled, method = 'knn',
                    trControl = trainControl(method = "none"),
-                   tuneGrid = data.frame(k = 4))
+                   tuneGrid = data.frame(k = best_k))
 price_knn
 ```
 
 ### k-NN Performance
 ```{r knn_perform}
-knn_yhat <- predict(price_knn, newdata = test_scaled)
-knn_yhat <- knn_yhat * sd(zillow.train_data$price) + 
+knn_yhat_train <- predict(price_knn)
+knn_yhat_train <- knn_yhat_train * sd(zillow.train_data$price) + 
            mean(zillow.train_data$price)
-obs <- zillow.test_data$price
-knn_results <- postResample(knn_yhat, obs)
-print(knn_results)
-plot(knn_yhat, obs)
+knn_yhat_test <- predict(price_knn, newdata = test_scaled)
+knn_yhat_test <- knn_yhat_test * sd(zillow.train_data$price) + 
+           mean(zillow.train_data$price)
+obs_test <- zillow.test_data$price
+knn_results_train <- postResample(knn_yhat_train, obs_train)
+knn_results_test <- postResample(knn_yhat_test, obs_test)
+print(knn_results_train)
+print(knn_results_test)
+plot(knn_yhat_test, obs_test)
 abline(0, 1, col = 'red')
 ```
 
@@ -336,10 +348,13 @@ plot(cv_price$size, cv_price$dev, type = 'b', log = 'y',
 ### Pruned Decision Tree Performance
 
 ```{r rt_perform}
-rt_yhat <- predict(price_rt, newdata = zillow.test_data)
-rt_results <- postResample(rt_yhat, obs)
-print(rt_results)
-plot(rt_yhat, obs)
+rt_yhat_train <- predict(price_rt)
+rt_results_train <- postResample(rt_yhat_train, obs_train)
+rt_yhat_test <- predict(price_rt, newdata = zillow.test_data)
+rt_results_test <- postResample(rt_yhat_test, obs_test)
+print(rt_results_train)
+print(rt_results_test)
+plot(rt_yhat_test, obs_test)
 abline(0, 1, col = 'red')
 ```
 
@@ -379,10 +394,13 @@ varImpPlot(price_rf)
 ### Random Forest Performance
 
 ```{r rf_perform}
-rf_yhat <- predict(price_rf, newdata = zillow.test_data)
-rf_results <- postResample(rf_yhat, obs)
-print(rf_results)
-plot(rf_yhat, obs)
+rf_yhat_train <- predict(price_rf)
+rf_results_train <- postResample(rf_yhat_train, obs_train)
+rf_yhat_test <- predict(price_rf, newdata = zillow.test_data)
+rf_results_test <- postResample(rf_yhat_test, obs_test)
+print(rf_results_train)
+print(rf_results_test)
+plot(rf_yhat_test, obs_test)
 abline(0, 1, col = 'red')
 ```
 
@@ -448,12 +466,17 @@ price_svm <- train(price ~ ., data = train_scaled,
 
 ### SVM Performance
 ```{r svm_perform}
-svm_yhat <- predict(price_svm, newdata = test_scaled)
-svm_yhat <- svm_yhat * sd(zillow.train_data$price) +
+svm_yhat_train <- predict(price_svm)
+svm_yhat_train <- svm_yhat_train * sd(zillow.train_data$price) +
            mean(zillow.train_data$price)
-svm_results <- postResample(svm_yhat, obs)
-print(svm_results)
-plot(svm_yhat, obs)
+svm_results_train <- postResample(svm_yhat_train, obs_train)
+svm_yhat_test <- predict(price_svm, newdata = test_scaled)
+svm_yhat_test <- svm_yhat_test * sd(zillow.train_data$price) +
+           mean(zillow.train_data$price)
+svm_results_test <- postResample(svm_yhat_test, obs_test)
+print(svm_results_train)
+print(svm_results_test)
+plot(svm_yhat_test, obs_test)
 abline(0, 1, col = 'red')
 ```
 
