@@ -356,7 +356,8 @@ rt_yhat_test <- predict(price_rt, newdata = zillow.test_data)
 rt_results_test <- postResample(rt_yhat_test, obs_test)
 print(rt_results_train)
 print(rt_results_test)
-plot(rt_yhat_test, obs_test)
+plot(rt_yhat_test, obs_test,  xlab = 'Predicted Price (USD)', 
+     ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
 
