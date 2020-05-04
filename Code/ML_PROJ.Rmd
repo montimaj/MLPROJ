@@ -278,7 +278,8 @@ ggplot(eval_df, aes(x = Actual, y = Predicted)) +
 lm_results_test <- postResample(eval_df$Predicted, eval_df$Actual)
 print(lm_results_train)
 print(lm_results_test)
-plot(eval_df$Predicted, eval_df$Actual)
+plot(eval_df$Predicted, eval_df$Actual, xlab = 'Predicted Price (USD)', 
+     ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
 
@@ -322,7 +323,8 @@ knn_results_train <- postResample(knn_yhat_train, obs_train)
 knn_results_test <- postResample(knn_yhat_test, obs_test)
 print(knn_results_train)
 print(knn_results_test)
-plot(knn_yhat_test, obs_test)
+plot(knn_yhat_test, obs_test, xlab = 'Predicted Price (USD)', 
+     ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
 
@@ -400,7 +402,8 @@ rf_yhat_test <- predict(price_rf, newdata = zillow.test_data)
 rf_results_test <- postResample(rf_yhat_test, obs_test)
 print(rf_results_train)
 print(rf_results_test)
-plot(rf_yhat_test, obs_test)
+plot(rf_yhat_test, obs_test, xlab = 'Predicted Price (USD)', 
+     ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
 
@@ -476,7 +479,8 @@ svm_yhat_test <- svm_yhat_test * sd(zillow.train_data$price) +
 svm_results_test <- postResample(svm_yhat_test, obs_test)
 print(svm_results_train)
 print(svm_results_test)
-plot(svm_yhat_test, obs_test)
+plot(svm_yhat_test, obs_test, xlab = 'Predicted Price (USD)', 
+     ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
 
@@ -518,7 +522,8 @@ get_ann_performance <- function(nn_fit, test_scaled, train_scaled,
   print(postResample(pred_train, train_data[[response]]))
   print('Test Metrics')
   print(postResample(pred_test, test_data[[response]]))
-  plot(pred_test, test_data[[response]])
+  plot(pred_test, test_data[[response]], xlab = 'Predicted Price (USD)', 
+       ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
   abline(0, 1, col = 'red')
 }
 ```
