@@ -63,12 +63,18 @@ transform_price <- function(price, sep = ',') {
 zillow.data$price <- sapply(zillow.data$price, transform_price)
 hist(zillow.data$price, main = "Histogram of Actual Prices")
 # handling outlier, changing the threshold will cause all models to perform poorly, also the dummies have to be adjusted according to this threshold.
+print(sd(zillow.data$price, na.rm = T))
+print(mean(zillow.data$price, na.rm =T))
+print(nrow(na.omit(zillow.data)))
 zillow.data$price[zillow.data$price > 1e+6] <- NA
 zillow.data <- na.omit(zillow.data)
 str(zillow.data)
 summary(zillow.data)
 write.csv(zillow.data, '../Data/zillow_cleaned.csv', row.names = FALSE)
 hist(zillow.data$price, main = "Histogram of Outlier Removed Prices")
+print(sd(zillow.data$price))
+print(mean(zillow.data$price))
+print(nrow(zillow.data))
 ```
 
 # Data Exploration V2
@@ -95,7 +101,8 @@ zillow.data$homeStatusOTHER <- ifelse(zillow.data$homeStatus == 'OTHER',
 zillow.data$homeStatusFOR_RENT <- ifelse(zillow.data$homeStatus ==
                                           'FOR_RENT', 1, 0)
 
-zillow.data$homeTypeCONDO <- ifelse(zillow.data$homeType == 'CONDO', 1, 0)
+zillow.data$homeTypeCONDO <- ifelse(zillow.data$homeType == 'CONDO', 1, 
+                                    0)
 zillow.data$homeTypeAPARTMENT <- ifelse(zillow.data$homeType ==
                                         'APARTMENT', 1, 0)
 zillow.data$homeTypeMULTI_FAMILY <- ifelse(zillow.data$homeType ==
@@ -295,7 +302,7 @@ test_scaled <- predict(preprocessParams, zillow.test_data)
 control <- trainControl(method = 'repeatedcv', number = 10, repeats = 3)
 set.seed(0)
 knn_tuned <- train(price ~ ., data = train_scaled, method = 'knn',
-                   trControl = control, 
+                   trControl = control,
                    tuneGrid = data.frame(k = 3: 100))
 best_k <- knn_tuned$bestTune$k
 print(paste('Best K=', best_k))
@@ -313,17 +320,17 @@ price_knn
 ### k-NN Performance
 ```{r knn_perform}
 knn_yhat_train <- predict(price_knn)
-knn_yhat_train <- knn_yhat_train * sd(zillow.train_data$price) + 
+knn_yhat_train <- knn_yhat_train * sd(zillow.train_data$price) +
            mean(zillow.train_data$price)
 knn_yhat_test <- predict(price_knn, newdata = test_scaled)
-knn_yhat_test <- knn_yhat_test * sd(zillow.train_data$price) + 
+knn_yhat_test <- knn_yhat_test * sd(zillow.train_data$price) +
            mean(zillow.train_data$price)
 obs_test <- zillow.test_data$price
 knn_results_train <- postResample(knn_yhat_train, obs_train)
 knn_results_test <- postResample(knn_yhat_test, obs_test)
 print(knn_results_train)
 print(knn_results_test)
-plot(knn_yhat_test, obs_test, xlab = 'Predicted Price (USD)', 
+plot(knn_yhat_test, obs_test, xlab = 'Predicted Price (USD)',
      ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
@@ -356,7 +363,7 @@ rt_yhat_test <- predict(price_rt, newdata = zillow.test_data)
 rt_results_test <- postResample(rt_yhat_test, obs_test)
 print(rt_results_train)
 print(rt_results_test)
-plot(rt_yhat_test, obs_test,  xlab = 'Predicted Price (USD)', 
+plot(rt_yhat_test, obs_test,  xlab = 'Predicted Price (USD)',
      ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
@@ -403,7 +410,7 @@ rf_yhat_test <- predict(price_rf, newdata = zillow.test_data)
 rf_results_test <- postResample(rf_yhat_test, obs_test)
 print(rf_results_train)
 print(rf_results_test)
-plot(rf_yhat_test, obs_test, xlab = 'Predicted Price (USD)', 
+plot(rf_yhat_test, obs_test, xlab = 'Predicted Price (USD)',
      ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
@@ -480,7 +487,7 @@ svm_yhat_test <- svm_yhat_test * sd(zillow.train_data$price) +
 svm_results_test <- postResample(svm_yhat_test, obs_test)
 print(svm_results_train)
 print(svm_results_test)
-plot(svm_yhat_test, obs_test, xlab = 'Predicted Price (USD)', 
+plot(svm_yhat_test, obs_test, xlab = 'Predicted Price (USD)',
      ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
 abline(0, 1, col = 'red')
 ```
@@ -523,7 +530,7 @@ get_ann_performance <- function(nn_fit, test_scaled, train_scaled,
   print(postResample(pred_train, train_data[[response]]))
   print('Test Metrics')
   print(postResample(pred_test, test_data[[response]]))
-  plot(pred_test, test_data[[response]], xlab = 'Predicted Price (USD)', 
+  plot(pred_test, test_data[[response]], xlab = 'Predicted Price (USD)',
        ylab = 'Actual Price (USD)', main = 'Predicted vs Actual Price')
   abline(0, 1, col = 'red')
 }
